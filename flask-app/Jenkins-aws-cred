@@ -32,12 +32,11 @@ pipeline {
                     try {
                         echo "Preparing Docker build context..."
                         sh """
-                            cp python-flask-app/Dockerfile .
-                            cp python-flask-app/requirements.txt .
-                            cp python-flask-app/app.py .
-                            mkdir -p static templates
-                            cp python-flask-app/static/style.css static/
-                            cp python-flask-app/templates/index.html templates/
+                            cp flask-app/Dockerfile ./
+                            cp flask-app/requirements.txt ./
+                            cp flask-app/app.py ./
+                            cp flask-app/static/style.css ./
+                            cp flask-app/templates/index.html ./
                         """
 
                         echo "Logging in to AWS ECR..."
