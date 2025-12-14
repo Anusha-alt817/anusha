@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = "us-east-1"
+        AWS_ACCOUNT_ID = "880420038603"
+        ECR_REPO = "tcs-python-repo"
+        IMAGE_NAME = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+        TAG = "latest"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                script {
+                    try {
+                        echo "Checking out code..."
+                        checkout scm
+                        echo "Checkout succeeded"
+                    } catch (Exception e) {
+                        echo "Checkout failed: ${e.getMessage()}"
+                        error("Stopping pipeline due to checkout failure")
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    try {
+                        echo "Preparing Docker build context..."
+                        sh """
+                            cp python-flask-app/Dockerfile .
+                            cp python-flask-app/requirements.txt .
+                            cp python-flask-app/app.py .
+                            mkdir -p static templates
+                            cp python-flask-app/static/style.css static/
+                            cp python-flask-app/templates/index.html templates/
+                        """
+
+                        echo "Logging in to AWS ECR..."
+                        sh """
+                            aws ecr get-login-password --region ${AWS_REGION} | \
+                            docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                        """
+
+                        echo "Building Docker image..."
+                        sh "docker build -t ${ECR_REPO}:${TAG} ."
+
+                        echo "Tagging Docker image..."
+                        sh "docker tag ${ECR_REPO}:${TAG} ${IMAGE_NAME}:${TAG}"
+
+                        echo "Pushing image to ECR..."
+                        sh "docker push ${IMAGE_NAME}:${TAG}"
+
+                        echo "Docker image pushed successfully"
+                    } catch (Exception e) {
+                        echo "Docker build/push failed: ${e.getMessage()}"
+                        error("Stopping pipeline due to Docker failure")
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline SUCCESS "
+        }
+        failure {
+            echo "Pipeline FAILED "
+        }
+        always {
+            echo "Pipeline completed"
+        }
+    }
+}
